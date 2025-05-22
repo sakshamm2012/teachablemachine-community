@@ -1,63 +1,123 @@
 Learn more about how to use the code snippet on [github](https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image).
 
 ```html
-<div>Teachable Machine Image Model</div>
-<button type="button" onclick="init()">Start</button>
-<div id="webcam-container"></div>
-<div id="label-container"></div>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-<script type="text/javascript">
-    // More API functions here:
-    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hand Gesture Recognition</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <style>
+    body {
+      background-color: #d0f0ff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 30px;
+    }
+    h1 {
+      font-weight: 900;
+      color: #004080;
+      margin-bottom: 25px;
+    }
+    #webcam-container {
+      margin: 0 auto;
+      width: 320px;
+      height: 320px;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 0 15px #004080aa;
+    }
+    #webcam-container canvas {
+      width: 320px !important;
+      height: 320px !important;
+      transform: scaleX(-1);
+    }
+    #label-container {
+      margin-top: 15px;
+      font-size: 22px;
+      font-weight: bold;
+      color: #004080;
+      min-height: 40px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px 25px;
+      font-size: 18px;
+      font-weight: 700;
+      color: white;
+      background-color: #004080;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #0066cc;
+    }
+  </style>
+</head>
+<body>
 
-    // the link to your model provided by Teachable Machine export panel
-    const URL = "{{URL}}";
+  <h1>Hand Gesture Recognition</h1>
 
-    let model, webcam, labelContainer, maxPredictions;
+  <div id="webcam-container"></div>
+  <div id="label-container">Click Start to begin</div>
 
-    // Load the image model and setup the webcam
+  <button id="toggle-button" onclick="toggleWebcam()">Start</button>
+
+  <script>
+    const URL = "https://teachablemachine.withgoogle.com/models/y25i5boCF/";
+
+    let model, webcam, maxPredictions;
+    let isRunning = false;
+
     async function init() {
-        const modelURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
+      const modelURL = URL + "model.json";
+      const metadataURL = URL + "metadata.json";
 
-        // load the model and metadata
-        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
-        // or files from your local hard drive
-        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
 
-        // Convenience function to setup a webcam
-        const flip = true; // whether to flip the webcam
-        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
-        await webcam.setup(); // request access to the webcam
-        await webcam.play();
-        window.requestAnimationFrame(loop);
+      webcam = new tmImage.Webcam(320, 320, true);
+      await webcam.setup();
+      await webcam.play();
 
-        // append elements to the DOM
-        document.getElementById("webcam-container").appendChild(webcam.canvas);
-        labelContainer = document.getElementById("label-container");
-        for (let i = 0; i < maxPredictions; i++) { // and class labels
-            labelContainer.appendChild(document.createElement("div"));
-        }
+      document.getElementById("webcam-container").appendChild(webcam.canvas);
+
+      isRunning = true;
+      document.getElementById("toggle-button").innerText = "Stop";
+      loop();
     }
 
     async function loop() {
-        webcam.update(); // update the webcam frame
-        await predict();
-        window.requestAnimationFrame(loop);
+      if (!isRunning) return;
+      webcam.update();
+      await predict();
+      requestAnimationFrame(loop);
     }
 
-    // run the webcam image through the image model
     async function predict() {
-        // predict can take in an image, video or canvas html element
-        const prediction = await model.predict(webcam.canvas);
-        for (let i = 0; i < maxPredictions; i++) {
-            const classPrediction =
-                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-            labelContainer.childNodes[i].innerHTML = classPrediction;
-        }
+      const predictions = await model.predict(webcam.canvas);
+      predictions.sort((a, b) => b.probability - a.probability);
+      const topPrediction = predictions[0];
+      const label = topPrediction.className;
+      const confidence = (topPrediction.probability * 100).toFixed(1);
+      document.getElementById("label-container").innerText = `${label} (${confidence}%)`;
     }
-</script>
-```
+
+    function toggleWebcam() {
+      if (isRunning) {
+        isRunning = false;
+        webcam.stop();
+        webcam.canvas.remove();
+        document.getElementById("toggle-button").innerText = "Start";
+        document.getElementById("label-container").innerText = "Webcam stopped";
+      } else {
+        init();
+      }
+    }
+  </script>
+
+</body>
+</html>
